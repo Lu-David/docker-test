@@ -1,0 +1,111 @@
+name: Build and Test
+
+on:
+  push:
+    branches:
+      - main
+    tags-ignore:
+      - "v*.*.*"
+  pull_request:
+  workflow_dispatch:
+  # Run M-F at 2pm CDT
+  schedule:
+    - cron: '0 19 * * 1-5'
+
+env:
+  DEFAULT_GO_VERSION: ^1.22.0
+  GITHUB_USERNAME: ${{ secrets.EC2_BOT_GITHUB_USERNAME }}
+  GITHUB_TOKEN: ${{ secrets.EC2_BOT_GITHUB_TOKEN }}
+  WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+
+jobs:
+  buildWindows:
+    name: Build Windows Binaries
+    strategy:
+      matrix:
+        version: [2019, 2022]
+    runs-on: windows-${{matrix.version}}
+    steps:
+    - name: Set up Go 1.x
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ env.DEFAULT_GO_VERSION }}
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+
+    - name: Restore go mod cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+          ~/go/bin/
+        key: gocache
+
+    - name: Build Windows Binaries
+      run: |
+        $env:ChocolateyInstall = Convert-Path "$((Get-Command choco).Path)\..\.."
+        Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
+        refreshenv
+
+        choco install make && choco install zip && make build-binaries-windows-${{matrix.version}}
+
+  buildWindowsDocker:
+    name: Build Windows Docker Images
+    strategy:
+      matrix:
+        version: [2019, 2022]
+    runs-on: windows-${{matrix.version}}
+    steps:
+    - name: Set up Go 1.x
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ env.DEFAULT_GO_VERSION }}
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+
+    - name: Restore go mod cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+          ~/go/bin/
+        key: gocache
+
+    - name: Build Windows Docker Images
+      run: |
+        $env:ChocolateyInstall = Convert-Path "$((Get-Command choco).Path)\..\.."
+        Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
+        refreshenv
+
+        choco install make && make build-docker-images-windows-${{matrix.version}}
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        k8sVersion: ["1.23", "1.24", "1.25", "1.26", "1.27", "1.28", "1.29", "1.30"]
+    steps:
+    - name: Set up Go 1.x
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ env.DEFAULT_GO_VERSION }}
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+
+    - name: Restore go mod cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+          ~/go/bin/
+        key: gocache
+
+    - name: E2E Tests
+      run: test/k8s-local-cluster-test/run-test -v ${{ matrix.k8sVersion }}
