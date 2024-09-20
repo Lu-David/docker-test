@@ -14,6 +14,7 @@ ARG GOPROXY="direct"
 WORKDIR /docker-test
 COPY go.mod .
 COPY go.sum .
+RUN go mod tidy
 RUN go mod download -x
 
 COPY . .
