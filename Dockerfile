@@ -8,7 +8,7 @@ ARG GO111MODULE="on"
 ARG CGO_ENABLED="0" 
 ARG GOOS="windows" 
 ARG GOARCH="amd64"
-ARG GOPROXY="direct|https://proxy.golang.org"
+ARG GOPROXY="direct"
 
 # Copy go.mod and download dependencies
 WORKDIR /docker-test
